@@ -5,10 +5,14 @@ import '../core/constants/app_colors.dart';
 
 /// The red camera viewfinder graphic used across the add-item flow.
 class ScanFrame extends StatelessWidget {
-  const ScanFrame({super.key, this.height, this.photoPath, this.onTap});
+  const ScanFrame({super.key, this.height, this.photoPath, this.imageUrl, this.onTap});
 
   final double? height;
   final String? photoPath;
+
+  /// An already-uploaded image (e.g. a collection's current cover), shown
+  /// when there is no local [photoPath].
+  final String? imageUrl;
   final VoidCallback? onTap;
 
   @override
@@ -25,6 +29,8 @@ class ScanFrame extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: photoPath != null
             ? Image.file(File(photoPath!), fit: BoxFit.cover)
+            : imageUrl != null
+            ? Image.network(imageUrl!, fit: BoxFit.cover)
             : Stack(
                 alignment: Alignment.center,
                 children: [

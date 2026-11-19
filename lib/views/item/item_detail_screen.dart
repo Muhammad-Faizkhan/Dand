@@ -3,6 +3,8 @@ import '../../widgets/chip_image.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import '../../controllers/app_controller.dart';
+import '../../controllers/collections_controller.dart';
+import '../../controllers/user_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/routes/app_routes.dart';
@@ -19,10 +21,63 @@ class ItemDetailScreen extends StatelessWidget {
 
   final ChipItem item;
 
+  /// The signed-in user's own chip: instead of "I have / I want" it can be deleted.
+  bool _isMine(BuildContext context) {
+    final owner = item.sellerId;
+    if (owner == null || item.itemId == null) return false;
+    try {
+      final me = context.select<UserController, int>((u) => u.live ? u.userId : 0);
+      return me != 0 && me == owner;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    final id = item.itemId;
+    if (id == null) return;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceAlt,
+        title: Text('Delete "${item.name}"?', style: AppText.h3),
+        content: Text(
+          'It is removed from your collections and profile. This can’t be undone.',
+          style: AppText.bodyDim.copyWith(fontSize: 13.sp),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: AppText.body)),
+          TextButton(
+            key: const Key('item-delete-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: AppText.body.copyWith(color: AppColors.red, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !context.mounted) return;
+    final ctrl = context.read<CollectionsController>();
+    final messenger = ScaffoldMessenger.of(context);
+    if (await ctrl.deleteItem(id)) {
+      ctrl.load(); // item counts on the collection covers
+      // Back to wherever the chip was opened from (the collection, profile, …).
+      if (context.mounted) Navigator.pop(context, true);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.surfaceAlt,
+          content: Text(ctrl.error ?? "Couldn't delete the chip.", style: AppText.body.copyWith(fontSize: 12.8.sp)),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final wishlist = context.watch<WishlistController>();
     final liked = wishlist.contains(item);
+    final mine = _isMine(context);
 
     return AppScaffold(
       safeAreaTop: false,
@@ -130,6 +185,19 @@ class ItemDetailScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (mine)
+            Padding(
+              padding: EdgeInsets.fromLTRB(AppLayout.gutter, 0, AppLayout.gutter, 24.h),
+              child: SecondaryButton(
+                key: const Key('item-delete'),
+                label: 'DELETE CHIP',
+                height: 56.h,
+                radius: 15.r,
+                textStyle: AppText.button.copyWith(fontSize: 12.8.sp, letterSpacing: 0.4, color: AppColors.red),
+                onTap: () => _delete(context),
+              ),
+            )
+          else
           Padding(
             padding: EdgeInsets.fromLTRB(AppLayout.gutter, 0, AppLayout.gutter, 24.h),
             child: Row(

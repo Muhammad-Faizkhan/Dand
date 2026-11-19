@@ -19,6 +19,7 @@ import '../../widgets/settings_widgets.dart';
 import '../../widgets/image_source_sheet.dart';
 import '../../widgets/upgrade_prompt.dart';
 import '../../core/api/api_client.dart';
+import '../../models/models.dart';
 
 /// Step 2 of the add-item flow: confirm what the scan detected and list it.
 class ItemFormScreen extends StatelessWidget {
@@ -287,21 +288,27 @@ class _ScanSummary extends StatelessWidget {
 
 /// Step 1 variants that create a collection or add an item to one.
 class CollectionFormScreen extends StatefulWidget {
-  const CollectionFormScreen({super.key, required this.isCategory});
+  const CollectionFormScreen({super.key, required this.isCategory, this.editing});
 
   final bool isCategory;
+
+  /// The user's own collection to rename / re-cover; null creates a new one.
+  final ApiCollection? editing;
 
   @override
   State<CollectionFormScreen> createState() => _CollectionFormScreenState();
 }
 
 class _CollectionFormScreenState extends State<CollectionFormScreen> {
-  late final _title = TextEditingController(text: context.read<CollectionsController>().client == null ? 'Event 5' : '');
-  final _desc = TextEditingController();
+  late final _title = TextEditingController(
+    text: widget.editing?.name ?? (context.read<CollectionsController>().client == null ? 'Event 5' : ''),
+  );
+  late final _desc = TextEditingController(text: widget.editing?.description ?? '');
   String? _coverPath;
   bool _saving = false;
 
   bool get isCategory => widget.isCategory;
+  bool get isEdit => widget.editing != null;
 
   @override
   void dispose() {
@@ -335,6 +342,19 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
     setState(() => _saving = true);
     try {
       final cover = _coverPath == null ? null : (await client.upload([_coverPath!])).first;
+      final editing = widget.editing;
+      if (editing != null) {
+        final saved = await ctrl.update(
+          editing.id,
+          name: name,
+          description: _desc.text.trim(),
+          coverImageUrl: cover,
+        );
+        if (!mounted) return;
+        if (saved == null) return say(ctrl.error ?? "Couldn't save the collection.");
+        Navigator.pop(context, saved);
+        return;
+      }
       final created = await ctrl.create(
         name: name,
         description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
@@ -364,13 +384,16 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(height: AppLayout.top(62)),
-                  SettingsHeader(title: isCategory ? 'Create Category' : 'Add to Collection'),
+                  SettingsHeader(title: isEdit ? 'Edit Collection' : (isCategory ? 'Create Category' : 'Add to Collection')),
                   SizedBox(height: 24.h),
-                  const StepProgress(step: 0),
-                  SizedBox(height: 22.h),
+                  if (!isEdit) ...[
+                    const StepProgress(step: 0),
+                    SizedBox(height: 22.h),
+                  ],
                   ScanFrame(
                     height: 296.h,
                     photoPath: live ? _coverPath : sell.photoPath,
+                    imageUrl: live ? widget.editing?.coverImageUrl : null,
                     onTap: live ? _pickCover : null,
                   ),
                   SizedBox(height: 26.h),
@@ -426,7 +449,11 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                   borderRadius: BorderRadius.circular(15.r),
                 ),
                 child: Text(
-                  _saving ? 'Creating…' : (isCategory ? 'Create Collection Category' : 'Add to Collection'),
+                  isEdit
+                      ? (_saving ? 'Saving…' : 'Save Changes')
+                      : _saving
+                      ? 'Creating…'
+                      : (isCategory ? 'Create Collection Category' : 'Add to Collection'),
                   style: AppText.button.copyWith(fontSize: 14.4.sp),
                 ),
               ),

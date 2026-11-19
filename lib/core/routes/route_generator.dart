@@ -140,7 +140,7 @@ class RouteGenerator {
       // Sell
       AppRoutes.addItem => const AddItemScreen(),
       AppRoutes.itemForm => const ItemFormScreen(),
-      AppRoutes.createCategory => const CollectionFormScreen(isCategory: true),
+      AppRoutes.createCategory => CollectionFormScreen(isCategory: true, editing: args is ApiCollection ? args : null),
       AppRoutes.addToCollection => const CollectionFormScreen(isCategory: false),
 
       // Settings

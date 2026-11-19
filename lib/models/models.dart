@@ -610,6 +610,7 @@ class ApiCollection {
     this.coverImageUrl,
     this.eventDate,
     this.itemCount = 0,
+    this.kind,
   });
 
   factory ApiCollection.fromJson(Map<String, dynamic> json) {
@@ -621,6 +622,7 @@ class ApiCollection {
       coverImageUrl: json['coverImageUrl'] as String?,
       eventDate: json['eventDate'] as String?,
       itemCount: count?['items'] as int? ?? 0,
+      kind: json['kind'] as String?,
     );
   }
 
@@ -630,6 +632,29 @@ class ApiCollection {
   final String? coverImageUrl;
   final String? eventDate;
   final int itemCount;
+
+  /// Set on the default ("primary") collections every user starts with, e.g.
+  /// "dealer-plates"; null for the ones the user made.
+  final String? kind;
+
+  /// Default collections can't be renamed, re-covered or deleted.
+  bool get isDefault => kind != null;
+
+  /// What to show when it has nothing in it: "No dealer plates in this
+  /// collection yet." for a default one, the collection's own name otherwise.
+  String get emptyText => isDefault
+      ? 'No ${name.toLowerCase()} in this collection yet. Tap + to add one.'
+      : 'Nothing in $name yet. Tap + to add a chip.';
+
+  ApiCollection copyWith({String? name, String? description, String? coverImageUrl, int? itemCount}) => ApiCollection(
+    id: id,
+    name: name ?? this.name,
+    description: description ?? this.description,
+    coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+    eventDate: eventDate,
+    itemCount: itemCount ?? this.itemCount,
+    kind: kind,
+  );
 }
 
 /// A conversation from GET /api/messages/conversations.

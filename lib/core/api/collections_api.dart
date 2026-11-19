@@ -29,10 +29,11 @@ class CollectionsApi {
     return ApiCollection.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<ApiCollection> updateCollection(int id, {String? name, String? description}) async {
+  Future<ApiCollection> updateCollection(int id, {String? name, String? description, String? coverImageUrl}) async {
     final body = <String, dynamic>{
       'name': ?name,
       'description': ?description,
+      'coverImageUrl': ?coverImageUrl,
     };
     final data = await client.patch('/api/collections/$id', body: body);
     return ApiCollection.fromJson(data as Map<String, dynamic>);

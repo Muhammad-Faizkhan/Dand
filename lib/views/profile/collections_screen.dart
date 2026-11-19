@@ -33,6 +33,17 @@ const _eventChips = <(String, String)>[
   (AppAssets.chipGrizzlyC, 'Buckeye · Ohio'),
 ];
 
+/// Collection and chip grids: two across on a phone, as drawn, and up to six
+/// on a wide tablet or landscape screen (the client asked for 5–6 across).
+SliverGridDelegate _grid(BuildContext context) => responsiveGridDelegate(
+  context,
+  tileDesign: const Size(155, 196),
+  spacing: 16,
+  runSpacing: 18,
+  mode: ContentWidth.full,
+  maxColumns: 6,
+);
+
 /// "Tom / Collections" — the event poster grid.
 class CollectionsScreen extends StatefulWidget {
   const CollectionsScreen({super.key});
@@ -56,8 +67,10 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
     final live = ctrl.client != null;
     final cols = ctrl.collections;
     final count = live ? cols.length : _events.length;
+    final primary = [for (final c in cols) if (c.isDefault) c];
+    final mine = [for (final c in cols) if (!c.isDefault) c];
     return AppScaffold(
-      contentWidth: ContentWidth.wide,
+      contentWidth: ContentWidth.full,
       bottomNavigationBar: const _CollectionsNav(),
       body: CustomScrollView(
         slivers: [
@@ -74,24 +87,35 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                     child: Text('Collections', style: AppText.bodyDim.copyWith(fontSize: 13.6.sp)),
                   ),
                   SizedBox(height: 20.h),
-                  if (live && cols.isEmpty)
-                    Text(
-                      ctrl.loading ? 'Loading…' : 'No collections yet. Tap + to create one, like "Sturgis 2024".',
-                      style: AppText.bodyDim.copyWith(fontSize: 13.6.sp, height: 1.5),
-                    ),
+                  if (live && cols.isEmpty && ctrl.loading)
+                    Text('Loading…', style: AppText.bodyDim.copyWith(fontSize: 13.6.sp, height: 1.5)),
                 ],
               ),
             ),
           ),
+          if (live) ...[
+            if (primary.isNotEmpty) ...[
+              _SectionTitle('Primary'),
+              _CollectionGrid(collections: primary),
+            ],
+            _SectionTitle('My collections'),
+            if (mine.isEmpty && !ctrl.loading)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppLayout.gutter),
+                  child: Text(
+                    'None of your own yet. Tap + to create one, like "Sturgis 2024".',
+                    style: AppText.bodyDim.copyWith(fontSize: 13.6.sp, height: 1.5),
+                  ),
+                ),
+              )
+            else
+              _CollectionGrid(collections: mine),
+          ] else
           SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: AppLayout.gutter),
             sliver: SliverGrid(
-              gridDelegate: responsiveGridDelegate(
-                context,
-                tileDesign: const Size(155, 196),
-                spacing: 16,
-                runSpacing: 18,
-              ),
+              gridDelegate: _grid(context),
               delegate: SliverChildBuilderDelegate((context, i) {
                 final col = live ? cols[i] : null;
                 final poster = Image.asset(_events[i % _events.length], fit: BoxFit.cover);
@@ -152,7 +176,10 @@ class EventDetailScreen extends StatefulWidget {
 class _EventDetailScreenState extends State<EventDetailScreen> {
   List<ChipItem>? _items;
 
-  String get eventName => widget.collection?.name ?? widget.eventName;
+  /// The collection as last saved; replaced after an edit.
+  late ApiCollection? _col = widget.collection;
+
+  String get eventName => _col?.name ?? widget.eventName;
 
   @override
   void initState() {
@@ -162,7 +189,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _load() async {
     final client = context.read<CollectionsController>().client;
-    final col = widget.collection;
+    final col = _col;
     if (client == null || col == null) return;
     try {
       final data = await client.get('/api/collections/${col.id}', auth: false) as Map<String, dynamic>;
@@ -177,8 +204,81 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
   }
 
+  /// Edit / Delete for the user's own collections (default ones are locked).
+  Future<void> _more() async {
+    final col = _col;
+    if (col == null) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.sheet,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26.r))),
+      builder: (context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                key: const Key('collection-edit'),
+                leading: Icon(Icons.edit_outlined, color: AppColors.white, size: 22.r),
+                title: Text('Edit name, description or cover', style: AppText.body.copyWith(fontSize: 14.sp)),
+                onTap: () => Navigator.pop(context, 'edit'),
+              ),
+              ListTile(
+                key: const Key('collection-delete'),
+                leading: Icon(Icons.delete_outline, color: AppColors.red, size: 22.r),
+                title: Text('Delete collection', style: AppText.body.copyWith(fontSize: 14.sp, color: AppColors.red)),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'edit') {
+      final saved = await Navigator.pushNamed(context, AppRoutes.createCategory, arguments: col);
+      if (mounted && saved is ApiCollection) setState(() => _col = saved);
+      return;
+    }
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceAlt,
+        title: Text('Delete "${col.name}"?', style: AppText.h3),
+        content: Text(
+          'The collection is removed. The chips in it stay in your profile.',
+          style: AppText.bodyDim.copyWith(fontSize: 13.sp),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: AppText.body)),
+          TextButton(
+            key: const Key('collection-delete-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: AppText.body.copyWith(color: AppColors.red, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || sure != true) return;
+    final ctrl = context.read<CollectionsController>();
+    final messenger = ScaffoldMessenger.of(context);
+    if (await ctrl.delete(col.id)) {
+      if (mounted) Navigator.pop(context);
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.surfaceAlt,
+          content: Text(ctrl.error ?? "Couldn't delete the collection.", style: AppText.body.copyWith(fontSize: 12.8.sp)),
+        ),
+      );
+    }
+  }
+
   void _add() {
-    final col = widget.collection;
+    final col = _col;
     if (col == null) {
       Navigator.pushNamed(context, AppRoutes.addToCollection);
       return;
@@ -190,11 +290,11 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final live = widget.collection != null;
+    final live = _col != null;
     final items = _items ?? const <ChipItem>[];
     final count = live ? items.length : _eventChips.length;
     return AppScaffold(
-      contentWidth: ContentWidth.wide,
+      contentWidth: ContentWidth.full,
       bottomNavigationBar: const _CollectionsNav(),
       body: CustomScrollView(
         slivers: [
@@ -205,7 +305,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(height: AppLayout.top(64)),
-                  _Header(onAdd: _add),
+                  _Header(onAdd: _add, onMore: live && !_col!.isDefault ? _more : null),
                   Padding(
                     padding: EdgeInsets.only(left: 58.w),
                     child: Column(
@@ -223,7 +323,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   SizedBox(height: 18.h),
                   if (live && items.isEmpty)
                     Text(
-                      _items == null ? 'Loading…' : 'No chips in this collection yet. Tap + to scan one in.',
+                      _items == null ? 'Loading…' : _col!.emptyText,
                       style: AppText.bodyDim.copyWith(fontSize: 13.6.sp, height: 1.5),
                     ),
                 ],
@@ -233,17 +333,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: AppLayout.gutter),
             sliver: SliverGrid(
-              gridDelegate: responsiveGridDelegate(
-                context,
-                tileDesign: const Size(155, 196),
-                spacing: 16,
-                runSpacing: 18,
-              ),
+              gridDelegate: _grid(context),
               delegate: SliverChildBuilderDelegate((context, i) {
                 if (live) {
                   final item = items[i];
                   return GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.itemDetail, arguments: item),
+                    // Closing the chip comes back here; reload in case it was deleted or changed.
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.itemDetail, arguments: item).then((_) => _load()),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -288,9 +384,12 @@ class _CollectionsNav extends StatelessWidget {
 /// The "+" is positioned rather than laid out in the row so that adding it
 /// leaves the header at exactly the height it has in the design.
 class _Header extends StatelessWidget {
-  const _Header({required this.onAdd});
+  const _Header({required this.onAdd, this.onMore});
 
   final VoidCallback onAdd;
+
+  /// Shows a "⋯" beside the "+" (Edit / Delete on the user's own collections).
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +412,15 @@ class _Header extends StatelessWidget {
         Positioned(
           right: 0,
           top: -6.h,
-          child: _AddAction(onTap: onAdd),
+          child: Row(
+            children: [
+              if (onMore != null) ...[
+                _AddAction(key: const Key('collection-more'), icon: Icons.more_horiz, onTap: onMore!),
+                SizedBox(width: 10.w),
+              ],
+              _AddAction(onTap: onAdd),
+            ],
+          ),
         ),
       ],
     );
@@ -322,9 +429,10 @@ class _Header extends StatelessWidget {
 
 /// The "+" in the collection headers, opening the matching form.
 class _AddAction extends StatelessWidget {
-  const _AddAction({required this.onTap});
+  const _AddAction({super.key, required this.onTap, this.icon = Icons.add});
 
   final VoidCallback onTap;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +447,71 @@ class _AddAction extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.border),
         ),
-        child: Icon(Icons.add, size: 18.4.sp, color: AppColors.redSolid),
+        child: Icon(icon, size: 18.4.sp, color: AppColors.redSolid),
+      ),
+    );
+  }
+}
+
+/// "Primary" / "My collections" heading above each grid.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(AppLayout.gutter, 6.h, AppLayout.gutter, 12.h),
+        child: Text(title, style: AppText.h3.copyWith(fontSize: 16.sp)),
+      ),
+    );
+  }
+}
+
+/// Collection covers with "Name · count", opening the collection.
+class _CollectionGrid extends StatelessWidget {
+  const _CollectionGrid({required this.collections});
+
+  final List<ApiCollection> collections;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(AppLayout.gutter, 0, AppLayout.gutter, 18.h),
+      sliver: SliverGrid(
+        gridDelegate: _grid(context),
+        delegate: SliverChildBuilderDelegate((context, i) {
+          final col = collections[i];
+          final poster = Image.asset(_events[i % _events.length], fit: BoxFit.cover);
+          final cover = col.coverImageUrl;
+          return GestureDetector(
+            key: Key('collection-${col.id}'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.eventDetail, arguments: col),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.red.withValues(alpha: 0.7))),
+                    child: cover == null
+                        ? poster
+                        : Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => poster),
+                  ),
+                ),
+                SizedBox(height: 10.h),
+                Text(
+                  '${col.name} · ${col.itemCount}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.h4.copyWith(fontSize: 14.4.sp),
+                ),
+              ],
+            ),
+          );
+        }, childCount: collections.length),
       ),
     );
   }
