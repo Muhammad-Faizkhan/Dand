@@ -34,7 +34,13 @@ File _photo() {
   return f;
 }
 
-SellController _sell(Future<http.Response> Function(http.Request) items, List<http.BaseRequest> seen) {
+const _bristol = {'id': 214, 'name': 'Harley-Davidson of Bristol', 'address': '75 Middle St, Bristol, CT 06010, USA', 'lat': 41.67, 'lng': -72.94};
+
+SellController _sell(
+  Future<http.Response> Function(http.Request) items,
+  List<http.BaseRequest> seen, {
+  List<Map<String, Object>> dealers = const [_bristol],
+}) {
   final client = ApiClient(
     tokens: MemoryTokenStore(),
     baseUrl: 'https://api.test',
@@ -42,6 +48,7 @@ SellController _sell(Future<http.Response> Function(http.Request) items, List<ht
       seen.add(req);
       if (req.url.path == '/api/uploads') return _json({'urls': [_url]}, 201);
       if (req.url.path == '/api/items/scan') return _json({'imageUrl': _url, 'suggestion': _suggestion});
+      if (req.url.path == '/api/dealers') return _json(dealers);
       return items(req);
     }),
   );
@@ -57,6 +64,9 @@ void main() {
 
     expect(sell.titleCtrl.text, 'Harley-Davidson of Bristol \$5 Chip');
     expect(sell.dealerCtrl.text, 'Harley-Davidson of Bristol');
+    expect(sell.dealer?.id, 214, reason: 'one dealer matches the scanned name, so it is picked');
+    final lookup = seen.singleWhere((r) => r.url.path == '/api/dealers');
+    expect(lookup.url.queryParameters['search'], 'Harley-Davidson of Bristol');
     expect(sell.yearCtrl.text, '2004');
     expect(sell.condition, 'Near Mint');
     expect(sell.scan!.summary, 'Bristol CT · \$5');
@@ -70,9 +80,48 @@ void main() {
     final body = jsonDecode(create.body) as Map<String, dynamic>;
     expect(body['title'], 'Bristol \$5 (corrected)', reason: "the user's edit wins over the scan");
     expect(body['brand'], 'Harley-Davidson of Bristol');
+    expect(body['dealerId'], 214);
     expect(body['year'], 2004);
     expect(body['imageUrls'], [_url]);
     expect(body['status'], 'FOR_TRADE');
+  });
+
+  test('several matching dealers are left for the user to pick, and none is sent', () async {
+    final seen = <http.BaseRequest>[];
+    final other = {..._bristol, 'id': 215, 'name': 'Bristol Harley-Davidson East'};
+    final sell = _sell((req) async => _json({'id': 7}, 201), seen, dealers: [_bristol, other]);
+
+    await sell.scanPhoto(_photo().path);
+
+    expect(sell.dealer, isNull);
+    // The second lookup adds the city to narrow it down.
+    final searches = seen.where((r) => r.url.path == '/api/dealers').map((r) => r.url.queryParameters['search']);
+    expect(searches, ['Harley-Davidson of Bristol', 'Harley-Davidson of Bristol Bristol']);
+
+    await sell.save();
+    final create = seen.whereType<http.Request>().singleWhere((r) => r.url.path == '/api/items');
+    expect((jsonDecode(create.body) as Map<String, dynamic>).containsKey('dealerId'), isFalse);
+  });
+
+  test('a dealer lookup that fails never breaks the scan', () async {
+    final seen = <http.BaseRequest>[];
+    final client = ApiClient(
+      tokens: MemoryTokenStore(),
+      baseUrl: 'https://api.test',
+      httpClient: MockClient((req) async {
+        seen.add(req);
+        if (req.url.path == '/api/uploads') return _json({'urls': [_url]}, 201);
+        if (req.url.path == '/api/items/scan') return _json({'imageUrl': _url, 'suggestion': _suggestion});
+        return _json({'error': 'Server error'}, 500);
+      }),
+    );
+    final sell = SellController(client: client);
+
+    await sell.scanPhoto(_photo().path);
+
+    expect(sell.scanError, isNull);
+    expect(sell.titleCtrl.text, 'Harley-Davidson of Bristol \$5 Chip');
+    expect(sell.dealer, isNull);
   });
 
   test('hitting the chip limit asks for an upgrade', () async {

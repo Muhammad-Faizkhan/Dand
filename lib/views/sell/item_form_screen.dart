@@ -13,6 +13,7 @@ import '../../widgets/app_background.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/auth_widgets.dart';
 import '../../widgets/buttons.dart';
+import '../../widgets/dealer_picker.dart';
 import '../../widgets/scan_frame.dart';
 import '../../widgets/settings_widgets.dart';
 import '../../widgets/image_source_sheet.dart';
@@ -79,7 +80,15 @@ class ItemFormScreen extends StatelessWidget {
                     AppTextField(label: 'Title', controller: sell.titleCtrl, height: 58.h),
                     if (sell.client != null) ...[
                       SizedBox(height: 18.h),
-                      AppTextField(label: 'Dealership', hint: 'e.g. Harley-Davidson of Bristol', controller: sell.dealerCtrl, height: 58.h),
+                      DealerPickerField(
+                        dealer: sell.dealer,
+                        typed: sell.dealerCtrl.text,
+                        search: sell.searchDealers,
+                        onChanged: (choice) {
+                          sell.dealerCtrl.text = choice.typed;
+                          sell.setDealer(choice.dealer);
+                        },
+                      ),
                       SizedBox(height: 18.h),
                       AppTextField(
                         label: 'Year',

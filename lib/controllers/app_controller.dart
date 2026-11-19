@@ -887,6 +887,10 @@ class SellController extends ChangeNotifier {
   /// Set when the chip is being added from inside a collection.
   int? collectionId;
 
+  /// The dealership the chip comes from, picked from the dealer list (or
+  /// matched from the scan). [dealerCtrl] keeps the name as typed or read.
+  Dealer? dealer;
+
   /// Set once the scan finishes; null until then and for mock (offline) runs.
   ChipScanResult? scan;
   String? scanError;
@@ -904,6 +908,7 @@ class SellController extends ChangeNotifier {
     _uploadedUrl = null;
     scan = null;
     scanError = null;
+    dealer = null;
     final c = client;
     if (c == null) {
       notifyListeners();
@@ -916,6 +921,7 @@ class SellController extends ChangeNotifier {
       final data = await c.post('/api/items/scan', body: {'imageUrl': _uploadedUrl}) as Map<String, dynamic>;
       scan = ChipScanResult.fromJson(data['suggestion'] as Map<String, dynamic>);
       _fillFrom(scan!);
+      await _suggestDealer(scan!);
     } on ApiException catch (e) {
       // The photo may still be uploaded; the user can type the details in.
       scanError = e.message;
@@ -939,7 +945,38 @@ class SellController extends ChangeNotifier {
     };
   }
 
+  /// Dealers whose name or address has every word of [query], for the picker.
+  Future<List<Dealer>> searchDealers(String query) async {
+    final c = client;
+    if (c == null) return const [];
+    final data = await c.get('/api/dealers', auth: false, query: {'search': query.trim(), 'limit': 30});
+    if (data is! List) throw ApiException(0, 'Unexpected answer from the server.');
+    return [for (final d in data.cast<Map<String, dynamic>>()) Dealer.fromJson(d)];
+  }
+
+  /// Picks the dealer for the user when the name on the chip matches exactly
+  /// one; otherwise they choose it. A failed lookup never blocks the scan.
+  Future<void> _suggestDealer(ChipScanResult s) async {
+    final name = s.dealership;
+    if (name == null || name.trim().isEmpty) return;
+    try {
+      var found = await searchDealers(name);
+      // "Harley-Davidson" alone matches nothing useful; the city narrows a long list.
+      if (found.length > 1 && s.city != null) found = await searchDealers('$name ${s.city}');
+      if (found.length == 1) dealer = found.single;
+    } on ApiException {
+      // Leave it for the user to pick.
+    }
+  }
+
+  void setDealer(Dealer? d) {
+    dealer = d;
+    if (d != null) dealerCtrl.text = d.name;
+    notifyListeners();
+  }
+
   void _clearForm() {
+    dealer = null;
     titleCtrl.clear();
     dealerCtrl.clear();
     yearCtrl.clear();
@@ -960,6 +997,7 @@ class SellController extends ChangeNotifier {
         'title': titleCtrl.text.trim(),
         if (descCtrl.text.trim().isNotEmpty) 'description': descCtrl.text.trim(),
         if (dealerCtrl.text.trim().isNotEmpty) 'brand': dealerCtrl.text.trim(),
+        'dealerId': ?dealer?.id,
         'year': ?year,
         'condition': condition,
         'rarity': rarity.toUpperCase().replaceAll(' ', '_'),
