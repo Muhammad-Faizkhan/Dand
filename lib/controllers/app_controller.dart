@@ -961,7 +961,10 @@ class SellController extends ChangeNotifier {
     if (name == null || name.trim().isEmpty) return;
     try {
       var found = await searchDealers(name);
-      // "Harley-Davidson" alone matches nothing useful; the city narrows a long list.
+      // A dealer with exactly the name on the chip wins over others in the same town.
+      final exact = found.where((d) => d.name.toLowerCase() == name.trim().toLowerCase()).toList();
+      if (exact.length == 1) found = exact;
+      // Otherwise the city narrows a long list.
       if (found.length > 1 && s.city != null) found = await searchDealers('$name ${s.city}');
       if (found.length == 1) dealer = found.single;
     } on ApiException {

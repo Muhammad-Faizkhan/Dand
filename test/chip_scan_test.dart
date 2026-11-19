@@ -88,8 +88,10 @@ void main() {
 
   test('several matching dealers are left for the user to pick, and none is sent', () async {
     final seen = <http.BaseRequest>[];
-    final other = {..._bristol, 'id': 215, 'name': 'Bristol Harley-Davidson East'};
-    final sell = _sell((req) async => _json({'id': 7}, 201), seen, dealers: [_bristol, other]);
+    // Neither is named exactly as on the chip, so the app can't tell them apart.
+    final east = {..._bristol, 'id': 215, 'name': 'Bristol Harley-Davidson East'};
+    final west = {..._bristol, 'id': 216, 'name': 'Bristol Harley-Davidson West'};
+    final sell = _sell((req) async => _json({'id': 7}, 201), seen, dealers: [east, west]);
 
     await sell.scanPhoto(_photo().path);
 
@@ -101,6 +103,17 @@ void main() {
     await sell.save();
     final create = seen.whereType<http.Request>().singleWhere((r) => r.url.path == '/api/items');
     expect((jsonDecode(create.body) as Map<String, dynamic>).containsKey('dealerId'), isFalse);
+  });
+
+  test('a dealer named exactly as on the chip is picked over others in the same town', () async {
+    final seen = <http.BaseRequest>[];
+    final other = {..._bristol, 'id': 215, 'name': 'Bristol Southside H-D'};
+    final sell = _sell((req) async => _json({'id': 7}, 201), seen, dealers: [other, _bristol]);
+
+    await sell.scanPhoto(_photo().path);
+
+    expect(sell.dealer?.id, 214);
+    expect(seen.where((r) => r.url.path == '/api/dealers'), hasLength(1));
   });
 
   test('a dealer lookup that fails never breaks the scan', () async {
