@@ -19,7 +19,7 @@ class MapDealersScreen extends StatelessWidget {
     final live = ctrl?.client != null;
     // (name, rating, wishlist items, distance) for the design data; (name, address, distance) when live.
     final rows = live
-        ? [for (final d in ctrl!.dealers) (d.name, d.address.isEmpty ? 'Dealer' : d.address, d.distance)]
+        ? [for (final d in ctrl!.dealers) (d.displayName, d.address.isEmpty ? 'Dealer' : d.address, d.distance)]
         : [for (final (name, rating, items, distance) in AppData.shops) (name, '⭐ $rating · $items wishlist items', distance)];
     final found = live ? '${rows.length} found' : '16 found';
     return AppScaffold(

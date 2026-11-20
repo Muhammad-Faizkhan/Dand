@@ -27,13 +27,14 @@ class DealersController extends ChangeNotifier {
 
   static const checkInRadiusM = 50.0;
 
-  /// The closest dealer the user is standing at, if any (accuracy forgiven up to 25 m, as on the server).
+  /// The closest open dealer the user is standing at, if any (accuracy forgiven up to 25 m, as on the server).
   Dealer? get dealerHere {
     final p = position;
     if (p == null) return null;
     Dealer? best;
     var bestM = double.infinity;
     for (final d in dealers) {
+      if (d.closed) continue; // no points at a closed dealership
       final m = Geolocator.distanceBetween(p.latitude, p.longitude, d.lat, d.lng);
       if (m - p.accuracy.clamp(0, 25) <= checkInRadiusM && m < bestM) {
         best = d;

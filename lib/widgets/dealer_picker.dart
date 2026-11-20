@@ -47,7 +47,7 @@ class DealerPickerField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = dealer;
-    final title = d?.name ?? (typed.trim().isEmpty ? 'Choose the dealership' : typed.trim());
+    final title = d?.displayName ?? (typed.trim().isEmpty ? 'Choose the dealership' : typed.trim());
     final detail = d?.address ?? (typed.trim().isEmpty ? null : 'Not matched to a dealer. Tap to pick one.');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +265,7 @@ class _DealerPickerSheetState extends State<DealerPickerSheet> {
         return _Row(
           key: Key('dealer-${d.id}'),
           icon: Icons.storefront_outlined,
-          title: d.name,
+          title: d.displayName,
           detail: d.address,
           onTap: () => Navigator.pop(context, (dealer: d, typed: d.name)),
         );

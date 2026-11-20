@@ -175,16 +175,18 @@ class _DealerPin extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            dealer.name,
+            dealer.displayName,
             maxLines: 1,
             style: AppText.h5.copyWith(
               fontSize: 12.sp,
               fontWeight: FontWeight.w700,
+              color: dealer.closed ? AppColors.white.withValues(alpha: 0.55) : null,
               shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
             ),
           ),
           SizedBox(height: 4.h),
-          Icon(Icons.place, size: 24.sp, color: AppColors.white),
+          // Closed dealerships stay on the map, greyed out.
+          Icon(Icons.place, size: 24.sp, color: dealer.closed ? AppColors.white.withValues(alpha: 0.35) : AppColors.white),
         ],
       ),
     );

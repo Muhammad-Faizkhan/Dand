@@ -341,6 +341,7 @@ class Dealer {
     this.phone,
     this.id,
     this.nextCheckInAt,
+    this.closed = false,
   });
 
   factory Dealer.fromJson(Map<String, dynamic> json) {
@@ -356,6 +357,7 @@ class Dealer {
       phone: json['phone'] as String?,
       id: json['id'] as int?,
       nextCheckInAt: DateTime.tryParse(json['nextCheckInAt'] as String? ?? '')?.toLocal(),
+      closed: json['closedAt'] != null,
     );
   }
 
@@ -371,7 +373,13 @@ class Dealer {
   /// When this user may check in here again; null if they never have.
   final DateTime? nextCheckInAt;
 
-  bool get checkInOpen => nextCheckInAt == null || nextCheckInAt!.isBefore(DateTime.now());
+  /// The dealership has closed. It stays on the map and in the chip picker
+  /// (its chips are still collectible) but gives no check-in points.
+  final bool closed;
+
+  String get displayName => closed ? '$name (Closed)' : name;
+
+  bool get checkInOpen => !closed && (nextCheckInAt == null || nextCheckInAt!.isBefore(DateTime.now()));
 }
 
 class ChatThread {

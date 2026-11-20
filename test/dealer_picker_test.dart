@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _kenai = Dealer(id: 4, name: 'Kenai Peninsula Harley-Davidson Shop', address: '41605 Sterling Hwy, Soldotna, AK', lat: 60.5, lng: -151.1);
 const _taku = Dealer(id: 5, name: 'Taku Harley-Davidson Shop', address: '263 Marine Way, Juneau, AK', lat: 58.3, lng: -134.4);
+const _insidePassage = Dealer(id: 6, name: 'Inside Passage Harley-Davidson', address: 'Juneau, AK', lat: 58.3, lng: -134.4, closed: true);
 
 void main() {
   late List<String> queries;
@@ -45,6 +46,30 @@ void main() {
     queries = [];
     chosen = null;
     answer = (q) => q.toLowerCase().contains('juneau') ? [_taku] : [_kenai, _taku];
+  });
+
+  test('a closed dealer reads closedAt, is labelled Closed and never offers a check-in', () {
+    final closed = Dealer.fromJson({'id': 6, 'name': 'Inside Passage Harley-Davidson', 'lat': 58.3, 'lng': -134.4, 'closedAt': '2026-11-20T00:00:00Z'});
+    expect(closed.closed, isTrue);
+    expect(closed.displayName, 'Inside Passage Harley-Davidson (Closed)');
+    expect(closed.checkInOpen, isFalse);
+    final open = Dealer.fromJson({'id': 5, 'name': 'Taku', 'lat': 58.3, 'lng': -134.4, 'closedAt': null});
+    expect(open.closed, isFalse);
+    expect(open.displayName, 'Taku');
+    expect(open.checkInOpen, isTrue);
+  });
+
+  testWidgets('closed dealers can still be picked, marked Closed', (tester) async {
+    answer = (q) => [_taku, _insidePassage];
+    await open(tester, typed: 'Juneau');
+    await tester.tap(find.byKey(const Key('dealer-picker-field')));
+    await tester.pumpAndSettle();
+    expect(find.text('Inside Passage Harley-Davidson (Closed)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('dealer-6')));
+    await tester.pumpAndSettle();
+    expect(chosen?.dealer?.id, 6);
+    expect(chosen?.typed, 'Inside Passage Harley-Davidson', reason: 'the saved name has no (Closed) suffix');
   });
 
   testWidgets('empty field asks for a dealership', (tester) async {
