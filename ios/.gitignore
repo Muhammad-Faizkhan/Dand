@@ -32,3 +32,6 @@ Runner/GeneratedPluginRegistrant.*
 !default.mode2v3
 !default.pbxuser
 !default.perspectivev3
+
+# Maps SDK key (see Flutter/Secrets.xcconfig)
+Flutter/Secrets.xcconfig

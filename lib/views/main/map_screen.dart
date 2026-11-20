@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:provider/provider.dart';
 import '../../controllers/dealers_controller.dart';
 import 'package:latlong2/latlong.dart';
@@ -27,6 +28,12 @@ class MapScreen extends StatelessWidget {
     final center = live ? ctrl!.center : const LatLng(40.6939, -74.2807);
     return Stack(
       children: [
+        if (live)
+          Positioned.fill(
+            child: _GoogleDealerMap(dealers: dealers, center: center, located: ctrl!.located),
+          ),
+        // Demo mode (no API) keeps the OpenStreetMap view, which the screenshot tests use.
+        if (!live)
         Positioned.fill(
           child: FlutterMap(
             // Re-centres once the phone's location comes in.
@@ -192,3 +199,79 @@ class _DealerPin extends StatelessWidget {
     );
   }
 }
+
+/// Google's map for signed-in use: dark style, one pin per dealer. Closed dealers are faded
+/// and the ones this user has checked in at are blue. Tapping a pin's label opens the list.
+class _GoogleDealerMap extends StatefulWidget {
+  const _GoogleDealerMap({required this.dealers, required this.center, required this.located});
+
+  final List<Dealer> dealers;
+  final LatLng center;
+  final bool located;
+
+  @override
+  State<_GoogleDealerMap> createState() => _GoogleDealerMapState();
+}
+
+class _GoogleDealerMapState extends State<_GoogleDealerMap> {
+  gm.GoogleMapController? _map;
+
+  gm.LatLng get _center => gm.LatLng(widget.center.latitude, widget.center.longitude);
+
+  @override
+  void didUpdateWidget(_GoogleDealerMap old) {
+    super.didUpdateWidget(old);
+    // The phone's location usually arrives after the first frame.
+    if (old.center != widget.center) _map?.animateCamera(gm.CameraUpdate.newLatLngZoom(_center, 9.5));
+  }
+
+  @override
+  void dispose() {
+    _map?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return gm.GoogleMap(
+      initialCameraPosition: gm.CameraPosition(target: _center, zoom: widget.located ? 9.5 : 4),
+      style: _darkMapStyle,
+      myLocationEnabled: widget.located,
+      myLocationButtonEnabled: false,
+      mapToolbarEnabled: false,
+      zoomControlsEnabled: false,
+      onMapCreated: (controller) => _map = controller,
+      markers: {
+        for (final d in widget.dealers)
+          gm.Marker(
+            markerId: gm.MarkerId('${d.id ?? d.name}'),
+            position: gm.LatLng(d.lat, d.lng),
+            icon: gm.BitmapDescriptor.defaultMarkerWithHue(
+              d.nextCheckInAt != null ? gm.BitmapDescriptor.hueAzure : gm.BitmapDescriptor.hueRed,
+            ),
+            alpha: d.closed ? 0.45 : 1,
+            infoWindow: gm.InfoWindow(
+              title: d.displayName,
+              snippet: [d.address, d.distance].where((s) => s.isNotEmpty).join(' · '),
+              onTap: () => Navigator.pushNamed(context, AppRoutes.mapDealers),
+            ),
+          ),
+      },
+    );
+  }
+}
+
+// Google's "night" look, close to the design's near-black basemap.
+const _darkMapStyle = '''
+[
+  {"elementType": "geometry", "stylers": [{"color": "#1d1d20"}]},
+  {"elementType": "labels.text.fill", "stylers": [{"color": "#8a8a8f"}]},
+  {"elementType": "labels.text.stroke", "stylers": [{"color": "#121214"}]},
+  {"featureType": "administrative", "elementType": "geometry.stroke", "stylers": [{"color": "#3a3a3e"}]},
+  {"featureType": "poi", "stylers": [{"visibility": "off"}]},
+  {"featureType": "road", "elementType": "geometry", "stylers": [{"color": "#2c2c30"}]},
+  {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#3a3a3f"}]},
+  {"featureType": "transit", "stylers": [{"visibility": "off"}]},
+  {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#0e1116"}]}
+]
+''';
