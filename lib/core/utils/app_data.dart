@@ -419,9 +419,9 @@ class AppData {
   static const plans = <PlanModel>[
     PlanModel(
       name: 'Free Trial',
-      tier: 'Tier 1 · 15 days',
+      tier: 'Tier 1 · 30 days',
       price: 'Free',
-      period: 'for 15 days',
+      period: 'for 30 days',
       items: '100 items',
       accent: AppColors.planBlue,
       isCurrent: true,

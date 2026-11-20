@@ -65,7 +65,7 @@ class CongratulationsScreen extends StatelessWidget {
                   Text('Congratulations!', style: AppText.h1.copyWith(fontSize: 20.5.sp)),
                   SizedBox(height: 16.h),
                   Text(
-                    'Congratulation your profile have been verified and your 15 days trial has Started.',
+                    'Congratulation your profile have been verified and your 30 days trial has Started.',
                     textAlign: TextAlign.center,
                     style: AppText.bodyDim.copyWith(fontSize: 12.8.sp, height: 1.5),
                   ),

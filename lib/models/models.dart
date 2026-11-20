@@ -489,9 +489,9 @@ class PlanModel {
     return PlanModel(
       id: json['id'] as int?,
       name: short,
-      tier: trial ? 'Tier ${index + 1} · 15 days' : 'Tier ${index + 1}',
+      tier: trial ? 'Tier ${index + 1} · 30 days' : 'Tier ${index + 1}',
       price: cents == 0 ? 'Free' : '\$${(cents / 100).toStringAsFixed(2)}',
-      period: trial ? 'for 15 days' : '/${json['billingPeriod'] == 'month' ? 'month' : 'year'}',
+      period: trial ? 'for 30 days' : '/${json['billingPeriod'] == 'month' ? 'month' : 'year'}',
       items: limit == null ? 'unlimited items' : '$limit items',
       accent: switch (code) {
         'FREE' => AppColors.planBlue,
