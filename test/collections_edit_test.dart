@@ -26,6 +26,17 @@ final _collections = [
   {'id': 1, 'name': 'Dealer Chips', 'kind': 'dealer-chips', '_count': {'items': 3}},
   {'id': 2, 'name': 'Dealer Plates', 'kind': 'dealer-plates', '_count': {'items': 0}},
   {'id': 9, 'name': 'Sturgis 2024', 'kind': null, '_count': {'items': 1}},
+  {
+    'id': 20,
+    'name': 'Merchandise',
+    'kind': 'merchandise',
+    '_count': {'items': 2},
+    'children': [
+      {'id': 21, 'name': 'Shirts', 'kind': 'shirts', 'parentId': 20, '_count': {'items': 2}},
+      {'id': 22, 'name': 'Hats', 'kind': 'hats', 'parentId': 20, '_count': {'items': 0}},
+      {'id': 23, 'name': 'Cups', 'kind': 'cups', 'parentId': 20, '_count': {'items': 0}},
+    ],
+  },
 ];
 
 /// A fake API that records every request and answers the calls these screens make.
@@ -44,6 +55,11 @@ class _Server {
       if (path == '/api/collections/2') return _json({..._collections[1], 'items': plates});
       if (path == '/api/collections/9' && req.method == 'GET') return _json({..._collections[2], 'items': []});
       if (path == '/api/collections/9' && req.method == 'DELETE') return http.Response('', 204);
+      if (path == '/api/collections/20') return _json({..._collections[3], 'items': []});
+      if (path == '/api/collections/21') {
+        final shirts = (_collections[3]['children'] as List)[0] as Map<String, Object?>;
+        return _json({...shirts, 'items': [], 'children': [], 'parent': {'id': 20, 'name': 'Merchandise'}});
+      }
       if (path == '/api/items/55' && req.method == 'DELETE') return http.Response('', 204);
       return _json({'error': 'not found'}, 404);
     }),
@@ -138,6 +154,22 @@ void main() {
 
     expect(find.byKey(const Key('collection-more')), findsNothing);
     expect(find.text('No dealer plates in this collection yet. Tap + to add one.'), findsOneWidget);
+  });
+
+  testWidgets('Merchandise opens to its Shirts, Hats and Cups folders and takes no chips itself', (tester) async {
+    expect(_col(3).hasSubfolders, isTrue);
+    await _pump(tester, _Server(), route: AppRoutes.eventDetail, arguments: _col(3));
+
+    expect(find.text('Shirts · 2'), findsOneWidget);
+    expect(find.text('Hats · 0'), findsOneWidget);
+    expect(find.text('Cups · 0'), findsOneWidget);
+    expect(find.byKey(const Key('collection-add')), findsNothing, reason: 'chips go into a sub-folder');
+    expect(find.textContaining('in this collection yet'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('collection-21')));
+    await tester.pumpAndSettle();
+    expect(find.text('No shirts in this collection yet. Tap + to add one.'), findsOneWidget);
+    expect(find.byKey(const Key('collection-add')), findsOneWidget);
   });
 
   testWidgets('deleting your own collection asks first, then goes back', (tester) async {

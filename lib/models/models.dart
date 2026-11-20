@@ -611,6 +611,7 @@ class ApiCollection {
     this.eventDate,
     this.itemCount = 0,
     this.kind,
+    this.children = const [],
   });
 
   factory ApiCollection.fromJson(Map<String, dynamic> json) {
@@ -623,6 +624,9 @@ class ApiCollection {
       eventDate: json['eventDate'] as String?,
       itemCount: count?['items'] as int? ?? 0,
       kind: json['kind'] as String?,
+      children: [
+        for (final c in (json['children'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>()) ApiCollection.fromJson(c),
+      ],
     );
   }
 
@@ -636,6 +640,12 @@ class ApiCollection {
   /// Set on the default ("primary") collections every user starts with, e.g.
   /// "dealer-plates"; null for the ones the user made.
   final String? kind;
+
+  /// Sub-folders, e.g. Shirts / Hats / Cups inside Merchandise. Chips go into
+  /// those, and [itemCount] already includes theirs.
+  final List<ApiCollection> children;
+
+  bool get hasSubfolders => children.isNotEmpty;
 
   /// Default collections can't be renamed, re-covered or deleted.
   bool get isDefault => kind != null;
@@ -654,6 +664,7 @@ class ApiCollection {
     eventDate: eventDate,
     itemCount: itemCount ?? this.itemCount,
     kind: kind,
+    children: children,
   );
 }
 

@@ -179,6 +179,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   /// The collection as last saved; replaced after an edit.
   late ApiCollection? _col = widget.collection;
 
+  /// Sub-folders (Shirts / Hats / Cups in Merchandise), refreshed on every load for their counts.
+  late List<ApiCollection> _children = widget.collection?.children ?? const [];
+
   String get eventName => _col?.name ?? widget.eventName;
 
   @override
@@ -198,6 +201,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         _items = [
           for (final i in (data['items'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>()) ChipItem.fromApiItem(i),
         ];
+        _children = ApiCollection.fromJson(data).children;
       });
     } on ApiException {
       if (mounted) setState(() => _items = const []);
@@ -293,6 +297,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final live = _col != null;
     final items = _items ?? const <ChipItem>[];
     final count = live ? items.length : _eventChips.length;
+    // Merchandise holds folders, not chips: chips are added inside Shirts, Hats or Cups.
+    final hasSubfolders = _children.isNotEmpty;
     return AppScaffold(
       contentWidth: ContentWidth.full,
       bottomNavigationBar: const _CollectionsNav(),
@@ -305,7 +311,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(height: AppLayout.top(64)),
-                  _Header(onAdd: _add, onMore: live && !_col!.isDefault ? _more : null),
+                  _Header(onAdd: hasSubfolders ? null : _add, onMore: live && !_col!.isDefault ? _more : null),
                   Padding(
                     padding: EdgeInsets.only(left: 58.w),
                     child: Column(
@@ -321,7 +327,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     ),
                   ),
                   SizedBox(height: 18.h),
-                  if (live && items.isEmpty)
+                  if (live && items.isEmpty && !hasSubfolders)
                     Text(
                       _items == null ? 'Loading…' : _col!.emptyText,
                       style: AppText.bodyDim.copyWith(fontSize: 13.6.sp, height: 1.5),
@@ -330,6 +336,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             ),
           ),
+          if (hasSubfolders) _CollectionGrid(collections: _children, onReturn: _load),
           SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: AppLayout.gutter),
             sliver: SliverGrid(
@@ -384,9 +391,10 @@ class _CollectionsNav extends StatelessWidget {
 /// The "+" is positioned rather than laid out in the row so that adding it
 /// leaves the header at exactly the height it has in the design.
 class _Header extends StatelessWidget {
-  const _Header({required this.onAdd, this.onMore});
+  const _Header({this.onAdd, this.onMore});
 
-  final VoidCallback onAdd;
+  /// Null hides the "+" (a folder of sub-folders takes no chips itself).
+  final VoidCallback? onAdd;
 
   /// Shows a "⋯" beside the "+" (Edit / Delete on the user's own collections).
   final VoidCallback? onMore;
@@ -416,9 +424,9 @@ class _Header extends StatelessWidget {
             children: [
               if (onMore != null) ...[
                 _AddAction(key: const Key('collection-more'), icon: Icons.more_horiz, onTap: onMore!),
-                SizedBox(width: 10.w),
+                if (onAdd != null) SizedBox(width: 10.w),
               ],
-              _AddAction(onTap: onAdd),
+              if (onAdd != null) _AddAction(key: const Key('collection-add'), onTap: onAdd!),
             ],
           ),
         ),
@@ -472,9 +480,12 @@ class _SectionTitle extends StatelessWidget {
 
 /// Collection covers with "Name · count", opening the collection.
 class _CollectionGrid extends StatelessWidget {
-  const _CollectionGrid({required this.collections});
+  const _CollectionGrid({required this.collections, this.onReturn});
 
   final List<ApiCollection> collections;
+
+  /// Called after coming back from a collection, e.g. to refresh counts.
+  final VoidCallback? onReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -488,7 +499,7 @@ class _CollectionGrid extends StatelessWidget {
           final cover = col.coverImageUrl;
           return GestureDetector(
             key: Key('collection-${col.id}'),
-            onTap: () => Navigator.pushNamed(context, AppRoutes.eventDetail, arguments: col),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.eventDetail, arguments: col).then((_) => onReturn?.call()),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
