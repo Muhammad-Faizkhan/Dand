@@ -37,6 +37,7 @@ final _collections = [
       {'id': 23, 'name': 'Cups', 'kind': 'cups', 'parentId': 20, '_count': {'items': 0}},
     ],
   },
+  {'id': 30, 'name': 'Bike Night', 'kind': null, 'isPrivate': true, '_count': {'items': 0}},
 ];
 
 /// A fake API that records every request and answers the calls these screens make.
@@ -61,6 +62,10 @@ class _Server {
         return _json({...shirts, 'items': [], 'children': [], 'parent': {'id': 20, 'name': 'Merchandise'}});
       }
       if (path == '/api/items/55' && req.method == 'DELETE') return http.Response('', 204);
+      if (path == '/api/collections/30' && req.method == 'GET') return _json({..._collections[4], 'items': []});
+      if (path == '/api/collections/30' && req.method == 'PATCH') {
+        return _json({..._collections[4], ...(jsonDecode(req.body) as Map<String, dynamic>)});
+      }
       return _json({'error': 'not found'}, 404);
     }),
   );
@@ -170,6 +175,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No shirts in this collection yet. Tap + to add one.'), findsOneWidget);
     expect(find.byKey(const Key('collection-add')), findsOneWidget);
+  });
+
+  testWidgets('a private collection shows a lock in the grid', (tester) async {
+    await _pump(tester, _Server(), route: AppRoutes.collections);
+    expect(find.byKey(const Key('private-30')), findsOneWidget);
+    expect(find.byKey(const Key('private-9')), findsNothing);
+  });
+
+  testWidgets('the edit form shows the Private switch and saves it', (tester) async {
+    final server = _Server();
+    expect(_col(4).isPrivate, isTrue);
+    await _pump(tester, server, route: AppRoutes.eventDetail, arguments: _col(4));
+    await tester.tap(find.byKey(const Key('collection-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-edit')));
+    await tester.pumpAndSettle();
+
+    final privateSwitch = find.descendant(of: find.byKey(const Key('collection-private')), matching: find.byType(AnimatedContainer));
+    expect(privateSwitch, findsOneWidget);
+    await tester.tap(privateSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+
+    final patch = server.requests.lastWhere((r) => r.method == 'PATCH' && r.url.path == '/api/collections/30');
+    expect(jsonDecode(patch.body)['isPrivate'], isFalse, reason: 'switched off before saving');
   });
 
   testWidgets('deleting your own collection asks first, then goes back', (tester) async {

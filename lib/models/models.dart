@@ -620,6 +620,7 @@ class ApiCollection {
     this.itemCount = 0,
     this.kind,
     this.children = const [],
+    this.isPrivate = false,
   });
 
   factory ApiCollection.fromJson(Map<String, dynamic> json) {
@@ -635,6 +636,7 @@ class ApiCollection {
       children: [
         for (final c in (json['children'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>()) ApiCollection.fromJson(c),
       ],
+      isPrivate: json['isPrivate'] as bool? ?? false,
     );
   }
 
@@ -655,6 +657,9 @@ class ApiCollection {
 
   bool get hasSubfolders => children.isNotEmpty;
 
+  /// Only the owner (and admins) can see it. Only the user's own collections can be private.
+  final bool isPrivate;
+
   /// Default collections can't be renamed, re-covered or deleted.
   bool get isDefault => kind != null;
 
@@ -664,7 +669,7 @@ class ApiCollection {
       ? 'No ${name.toLowerCase()} in this collection yet. Tap + to add one.'
       : 'Nothing in $name yet. Tap + to add a chip.';
 
-  ApiCollection copyWith({String? name, String? description, String? coverImageUrl, int? itemCount}) => ApiCollection(
+  ApiCollection copyWith({String? name, String? description, String? coverImageUrl, int? itemCount, bool? isPrivate}) => ApiCollection(
     id: id,
     name: name ?? this.name,
     description: description ?? this.description,
@@ -673,6 +678,7 @@ class ApiCollection {
     itemCount: itemCount ?? this.itemCount,
     kind: kind,
     children: children,
+    isPrivate: isPrivate ?? this.isPrivate,
   );
 }
 

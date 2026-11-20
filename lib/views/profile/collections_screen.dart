@@ -513,8 +513,25 @@ class _CollectionGrid extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 10.h),
-                Text(
-                  '${col.name} · ${col.itemCount}',
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      if (col.isPrivate)
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.only(right: 4.w),
+                            child: Icon(
+                              Icons.lock_outline,
+                              key: Key('private-${col.id}'),
+                              size: 14.sp,
+                              color: AppColors.white.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ),
+                      TextSpan(text: '${col.name} · ${col.itemCount}'),
+                    ],
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.h4.copyWith(fontSize: 14.4.sp),

@@ -18,9 +18,11 @@ class CollectionsApi {
     String? description,
     String? coverImageUrl,
     String? eventDate,
+    bool isPrivate = false,
   }) async {
     final body = <String, dynamic>{
       'name': name,
+      'isPrivate': isPrivate,
       if (description != null && description.isNotEmpty) 'description': description,
       'coverImageUrl': ?coverImageUrl,
       'eventDate': ?eventDate,
@@ -29,9 +31,10 @@ class CollectionsApi {
     return ApiCollection.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<ApiCollection> updateCollection(int id, {String? name, String? description, String? coverImageUrl}) async {
+  Future<ApiCollection> updateCollection(int id, {String? name, String? description, String? coverImageUrl, bool? isPrivate}) async {
     final body = <String, dynamic>{
       'name': ?name,
+      'isPrivate': ?isPrivate,
       'description': ?description,
       'coverImageUrl': ?coverImageUrl,
     };

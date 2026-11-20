@@ -305,6 +305,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
   );
   late final _desc = TextEditingController(text: widget.editing?.description ?? '');
   String? _coverPath;
+  late bool _private = widget.editing?.isPrivate ?? false;
   bool _saving = false;
 
   bool get isCategory => widget.isCategory;
@@ -349,6 +350,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
           name: name,
           description: _desc.text.trim(),
           coverImageUrl: cover,
+          isPrivate: _private,
         );
         if (!mounted) return;
         if (saved == null) return say(ctrl.error ?? "Couldn't save the collection.");
@@ -359,6 +361,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
         name: name,
         description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
         coverImageUrl: cover,
+        isPrivate: _private,
       );
       if (!mounted) return;
       if (created == null) return say(ctrl.error ?? "Couldn't create the collection.");
@@ -406,6 +409,16 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                     ),
                     SizedBox(height: 18.h),
                     AppTextField(label: 'Description', hint: 'Add description', controller: _desc, maxLines: 4),
+                    if (live) ...[
+                      SizedBox(height: 12.h),
+                      ToggleRow(
+                        key: const Key('collection-private'),
+                        title: 'Private',
+                        subtitle: 'Only you can see this collection and the chips in it.',
+                        value: _private,
+                        onChanged: (v) => setState(() => _private = v),
+                      ),
+                    ],
                   ] else ...[
                     AppTextField(label: 'Title', hint: 'Enter Title', height: 58.h),
                     SizedBox(height: 18.h),

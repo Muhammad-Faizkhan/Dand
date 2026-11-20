@@ -38,6 +38,7 @@ class CollectionsController extends ChangeNotifier {
     String? description,
     String? coverImageUrl,
     String? eventDate,
+    bool isPrivate = false,
   }) async {
     final c = client;
     if (c == null) return null;
@@ -47,6 +48,7 @@ class CollectionsController extends ChangeNotifier {
         description: description,
         coverImageUrl: coverImageUrl,
         eventDate: eventDate,
+        isPrivate: isPrivate,
       );
       _collections = [col, ..._collections];
       notifyListeners();
@@ -60,7 +62,7 @@ class CollectionsController extends ChangeNotifier {
 
   /// Renames a collection or changes its description or cover. Returns the
   /// updated collection, or null with [error] set.
-  Future<ApiCollection?> update(int id, {String? name, String? description, String? coverImageUrl}) async {
+  Future<ApiCollection?> update(int id, {String? name, String? description, String? coverImageUrl, bool? isPrivate}) async {
     final c = client;
     if (c == null) return null;
     try {
@@ -69,6 +71,7 @@ class CollectionsController extends ChangeNotifier {
         name: name,
         description: description,
         coverImageUrl: coverImageUrl,
+        isPrivate: isPrivate,
       );
       final i = _collections.indexWhere((col) => col.id == id);
       // PATCH answers without the item count or the resolved default cover; keep those.
@@ -78,6 +81,7 @@ class CollectionsController extends ChangeNotifier {
               name: saved.name,
               description: saved.description,
               coverImageUrl: saved.coverImageUrl,
+              isPrivate: saved.isPrivate,
             );
       if (i >= 0) _collections[i] = merged;
       notifyListeners();
