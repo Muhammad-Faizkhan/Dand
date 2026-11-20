@@ -177,8 +177,7 @@ class RouteGenerator {
       AppRoutes.ordersTrade => const OrdersScreen(initialTab: 1),
       AppRoutes.wallet => const WalletScreen(),
       AppRoutes.walletHistory => const TransactionHistoryScreen(),
-      AppRoutes.leaderboard => const LeaderboardScreen(),
-      AppRoutes.dealerRanking => const DealerRankingScreen(),
+      AppRoutes.leaderboard => const RankingsScreen(),
       AppRoutes.chipStore => const ChipStoreScreen(),
 
       _ => UnknownRouteScreen(name: settings.name ?? '?'),

@@ -380,6 +380,9 @@ class Dealer {
   String get displayName => closed ? '$name (Closed)' : name;
 
   bool get checkInOpen => !closed && (nextCheckInAt == null || nextCheckInAt!.isBefore(DateTime.now()));
+
+  /// This user has checked in here at least once.
+  bool get checkedIn => nextCheckInAt != null;
 }
 
 class ChatThread {

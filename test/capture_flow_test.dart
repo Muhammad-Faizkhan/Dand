@@ -96,34 +96,10 @@ void main() {
   setUp(() => original = ImagePickerPlatform.instance);
   tearDown(() => ImagePickerPlatform.instance = original);
 
-  group('Add Item — camera', () {
-    testWidgets('Take Photo opens the camera and carries the shot into the form',
-        (tester) async {
-      final picker = _FakePicker(path: '/tmp/chip.jpg');
-      ImagePickerPlatform.instance = picker;
-
-      await _pumpAt(tester, AppRoutes.addItem);
-
-      await tester.tap(find.text('Take Photo'));
-      await tester.pumpAndSettle();
-
-      expect(picker.calls, [ImageSource.camera], reason: 'must ask for the camera, not the gallery');
-      expect(find.text('Add Item'), findsNothing, reason: 'should have moved on to the item form');
-    });
-
-    testWidgets('the scan frame is a shutter too', (tester) async {
-      final picker = _FakePicker(path: '/tmp/chip.jpg');
-      ImagePickerPlatform.instance = picker;
-
-      await _pumpAt(tester, AppRoutes.addItem);
-
-      await tester.tap(find.byIcon(Icons.photo_camera_outlined));
-      await tester.pumpAndSettle();
-
-      expect(picker.calls, [ImageSource.camera]);
-    });
-
-    testWidgets('Upload asks for the gallery', (tester) async {
+  // Take Photo now opens the circular chip camera; its tests are in
+  // chip_camera_test.dart. Upload still goes through image_picker.
+  group('Add Item — upload', () {
+    testWidgets('Upload asks for the gallery and carries the photo into the form', (tester) async {
       final picker = _FakePicker(path: '/tmp/chip.jpg');
       ImagePickerPlatform.instance = picker;
 
@@ -133,55 +109,34 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(picker.calls, [ImageSource.gallery]);
+      expect(find.text('Add Item'), findsNothing, reason: 'should have moved on to the item form');
     });
 
-    testWidgets('cancelling the camera leaves the user on Add Item, silently', (tester) async {
+    testWidgets('cancelling the gallery leaves the user on Add Item, silently', (tester) async {
       ImagePickerPlatform.instance = _FakePicker();
 
       await _pumpAt(tester, AppRoutes.addItem);
 
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.text('Upload'));
       await tester.pumpAndSettle();
 
       expect(find.text('Add Item'), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
     });
 
-    // Every one of these used to throw straight past the button, so the tap
-    // looked like it did nothing at all.
-    testWidgets('a denied camera permission is explained, not swallowed', (tester) async {
+    // These used to throw straight past the button, so the tap looked dead.
+    testWidgets('a denied photo permission is explained, not swallowed', (tester) async {
       ImagePickerPlatform.instance = _FakePicker(
-        error: PlatformException(code: 'camera_access_denied'),
+        error: PlatformException(code: 'photo_access_denied'),
       );
 
       await _pumpAt(tester, AppRoutes.addItem);
 
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.text('Upload'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Camera access is off'), findsOneWidget);
+      expect(find.textContaining('Photo access is off'), findsOneWidget);
       expect(find.text('Add Item'), findsOneWidget, reason: 'no photo, so no navigation');
-    });
-
-    testWidgets('no camera on the device offers the gallery instead', (tester) async {
-      ImagePickerPlatform.instance = _FakePicker(
-        error: PlatformException(code: 'no_available_camera'),
-      );
-
-      await _pumpAt(tester, AppRoutes.addItem);
-
-      await tester.tap(find.text('Take Photo'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('No camera is available'), findsOneWidget);
-
-      // Taking the offer runs the picker again, against the gallery.
-      final gallery = _FakePicker(path: '/tmp/chip.jpg');
-      ImagePickerPlatform.instance = gallery;
-      await tester.tap(find.text('Choose from gallery'));
-      await tester.pumpAndSettle();
-
-      expect(gallery.calls, [ImageSource.gallery]);
     });
 
     testWidgets('a double tap while the picker is up says nothing', (tester) async {
@@ -191,7 +146,7 @@ void main() {
 
       await _pumpAt(tester, AppRoutes.addItem);
 
-      await tester.tap(find.text('Take Photo'));
+      await tester.tap(find.text('Upload'));
       await tester.pumpAndSettle();
 
       expect(find.byType(SnackBar), findsNothing);

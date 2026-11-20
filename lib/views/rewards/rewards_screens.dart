@@ -98,134 +98,192 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _RankRow extends StatelessWidget {
-  const _RankRow({
-    required this.rank,
-    required this.leading,
-    required this.title,
-    required this.subtitle,
-    required this.trailing,
-    this.highlight = false,
-  });
+/// "1294" -> "1,294".
+String _thousands(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
-  final int rank;
-  final Widget leading;
-  final String title;
-  final String subtitle;
-  final Widget trailing;
-  final bool highlight;
+const _rowBorder = Color(0x33FFFFFF);
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: highlight ? AppColors.redTint : AppColors.surface,
-        borderRadius: BorderRadius.circular(15.r),
-        border: Border.all(color: highlight ? AppColors.redBorder : AppColors.borderStrong),
+/// 📍 Sturgis, SD — red pin, grey text.
+Widget _place(String text, {double size = 11}) => Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Icon(Icons.place, size: size.sp, color: AppColors.red),
+    SizedBox(width: 3.w),
+    Flexible(
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppText.bodySmDim.copyWith(fontSize: size.sp),
       ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 34.w,
-            child: Text('#$rank', style: AppText.h4.copyWith(fontSize: 13.6.sp)),
-          ),
-          leading,
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.h4.copyWith(fontSize: 14.4.sp),
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  SizedBox(height: 3.h),
-                  Text(
-                    '📍 $subtitle',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.bodyDim.copyWith(fontSize: 11.6.sp),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          trailing,
-        ],
-      ),
-    );
-  }
-}
+    ),
+  ],
+);
 
-Widget _pill(String text, {Color color = AppColors.red}) => Container(
-  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-  decoration: BoxDecoration(
-    color: color.withValues(alpha: 0.14),
-    borderRadius: BorderRadius.circular(18.r),
-    border: Border.all(color: color.withValues(alpha: 0.5)),
-  ),
-  child: Text(
-    text,
-    style: AppText.h4.copyWith(fontSize: 13.6.sp, color: AppColors.white),
+/// Check-in count: red person-check icon and number.
+Widget _checkIns(int n, {double size = 12}) => Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Icon(Icons.how_to_reg_rounded, size: (size + 2).sp, color: AppColors.red),
+    SizedBox(width: 4.w),
+    Text(_thousands(n), style: AppText.h5.copyWith(fontSize: size.sp, color: AppColors.red)),
+  ],
+);
+
+Widget _dealerAvatar(double size) => Container(
+  width: size.w,
+  height: size.w,
+  alignment: Alignment.center,
+  decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.redGradient),
+  child: Text('HD', style: AppText.h5.copyWith(fontSize: (size * 0.32).sp, fontWeight: FontWeight.w700)),
+);
+
+/// "#2 RANK" tag in the place's medal colour.
+Widget _rankTag(int place, Color color) => Container(
+  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8.r)),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (place == 1) ...[Icon(Icons.military_tech_rounded, size: 13.sp, color: AppColors.black), SizedBox(width: 3.w)],
+      Text('#$place RANK', style: AppText.captionBold.copyWith(fontSize: 10.sp, color: AppColors.black, fontWeight: FontWeight.w700)),
+    ],
   ),
 );
 
-// Leaderboard
+Color _medal(int place) => switch (place) {
+  1 => _gold,
+  2 => _silver,
+  _ => _bronze,
+};
 
-class LeaderboardScreen extends StatefulWidget {
-  const LeaderboardScreen({super.key});
+// Rankings: one screen with User Ranking / Dealership Ranking tabs, as in the Figma "Rankings" frames.
+
+class RankingsScreen extends StatefulWidget {
+  const RankingsScreen({super.key, this.dealers = false});
+
+  /// Open on the Dealership Ranking tab.
+  final bool dealers;
 
   @override
-  State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+  State<RankingsScreen> createState() => _RankingsScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> with _LoadOnOpen {
+class _RankingsScreenState extends State<RankingsScreen> {
+  late bool _dealers = widget.dealers;
+
   @override
-  Future<void> load(RewardsController r) => r.loadLeaderboard();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
+  Future<void> _load() {
+    final r = context.read<RewardsController>();
+    return _dealers ? r.loadDealerRanking() : r.loadLeaderboard();
+  }
+
+  void _show(bool dealers) {
+    if (dealers == _dealers) return;
+    setState(() => _dealers = dealers);
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
     final r = context.watch<RewardsController>();
-    final top = r.leaders;
-    final me = r.me;
     final myId = context.watch<UserController>().userId;
     return _Page(
-      title: 'Leaderboard',
-      subtitle: 'Ranked by chips in each collection',
-      onRefresh: r.loadLeaderboard,
+      title: 'Rankings',
+      subtitle: 'Ranked purely by verified owned biker chips',
+      onRefresh: _load,
       children: [
-        if (top.isEmpty)
-          _empty(r.loading ? 'Loading…' : 'No collectors ranked yet. Add chips to your collection to get on the board.')
-        else ...[
-          _Podium(top: top.take(3).toList(), myId: myId),
-          SizedBox(height: 18.h),
-          for (final u in top.skip(3))
-            _RankRow(
-              rank: u.rank,
-              highlight: u.id == myId,
-              leading: _Avatar(name: u.name, url: u.avatarUrl, size: 40),
-              title: u.id == myId ? 'You' : u.name,
-              subtitle: u.place ?? '',
-              trailing: _pill('${u.chips}'),
-            ),
-          if (me != null && !top.any((u) => u.id == me.id)) ...[
-            SizedBox(height: 6.h),
-            _RankRow(
-              rank: me.rank,
-              highlight: true,
-              leading: _Avatar(name: me.name, url: me.avatarUrl, size: 40),
-              title: 'You',
-              subtitle: me.place ?? '',
-              trailing: _pill('${me.chips}'),
-            ),
-          ],
-        ],
+        _RankTabs(dealers: _dealers, onChanged: _show),
+        SizedBox(height: 16.h),
+        if (_dealers) ..._dealerList(r) else ..._userList(r, myId),
       ],
+    );
+  }
+
+  List<Widget> _userList(RewardsController r, int myId) {
+    final top = r.leaders;
+    final me = r.me;
+    if (top.isEmpty) return [_empty(r.loading ? 'Loading…' : 'No collectors ranked yet. Add chips to your collection to get on the board.')];
+    return [
+      _Podium(top: top.take(3).toList(), myId: myId),
+      SizedBox(height: 14.h),
+      for (final u in top.skip(3)) _UserRow(user: u, isMe: u.id == myId),
+      if (me != null && !top.any((u) => u.id == me.id)) ...[SizedBox(height: 4.h), _UserRow(user: me, isMe: true)],
+    ];
+  }
+
+  List<Widget> _dealerList(RewardsController r) {
+    final list = r.dealerRanking;
+    if (list.isEmpty) return [_empty(r.loading ? 'Loading…' : 'No dealerships listed yet.')];
+    return [
+      _TopDealer(dealer: list.first),
+      if (list.length > 1) ...[
+        SizedBox(height: 12.h),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _RunnerUpDealer(dealer: list[1])),
+            SizedBox(width: 12.w),
+            Expanded(child: list.length > 2 ? _RunnerUpDealer(dealer: list[2]) : const SizedBox()),
+          ],
+        ),
+      ],
+      SizedBox(height: 12.h),
+      for (final d in list.skip(3)) _DealerRow(dealer: d),
+    ];
+  }
+}
+
+class _RankTabs extends StatelessWidget {
+  const _RankTabs({required this.dealers, required this.onChanged});
+
+  final bool dealers;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tab(String label, bool selected, bool value) => Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onChanged(value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: selected ? AppColors.redGradientH : null,
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Text(
+              label,
+              style: AppText.h5.copyWith(
+                fontSize: 12.8.sp,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? AppColors.white : AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return Container(
+      height: 46.h,
+      padding: EdgeInsets.all(4.w),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(13.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(children: [tab('User Ranking', !dealers, false), tab('Dealership Ranking', dealers, true)]),
     );
   }
 }
@@ -236,39 +294,104 @@ class _Podium extends StatelessWidget {
   final List<RankedUser> top;
   final int myId;
 
+  // Light pedestal tints from the design: cream for gold, pale blue for silver, peach for bronze.
+  static const _pedestal = {1: Color(0xFFFFF1C4), 2: Color(0xFFE4E9FA), 3: Color(0xFFFFE2C6)};
+
   @override
   Widget build(BuildContext context) {
-    Widget spot(RankedUser? u, Color color, double height, {bool crown = false}) {
+    Widget spot(RankedUser? u, int place) {
       if (u == null) return const Expanded(child: SizedBox());
+      final first = place == 1;
+      final color = _medal(place);
+      final avatar = first ? 62.0 : 50.0;
       return Expanded(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            if (crown) Icon(Icons.workspace_premium_rounded, color: _gold, size: 22.sp),
-            _Avatar(name: u.name, url: u.avatarUrl, size: crown ? 66 : 52, ring: color),
-            SizedBox(height: 6.h),
+            if (first) Icon(Icons.workspace_premium_rounded, color: _gold, size: 22.sp),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _Avatar(name: u.name, url: u.avatarUrl, size: avatar, ring: color),
+                Positioned(
+                  right: -4.w,
+                  bottom: -4.w,
+                  child: Container(
+                    width: 22.w,
+                    height: 22.w,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.surface, width: 2),
+                    ),
+                    child: Text('#$place', style: AppText.captionBold.copyWith(fontSize: 8.8.sp, color: AppColors.black, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8.h),
             Text(
               u.id == myId ? 'You' : u.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppText.h5.copyWith(fontSize: 12.sp),
+              style: AppText.h5.copyWith(fontSize: first ? 13.6.sp : 12.8.sp, fontWeight: FontWeight.w700),
             ),
-            if (u.place != null) Text(u.place!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodySmDim),
+            if (u.place != null) _place(u.place!, size: 10.4),
             SizedBox(height: 8.h),
             Container(
-              height: height.h,
-              margin: EdgeInsets.symmetric(horizontal: 4.w),
+              height: (first ? 74 : 54).h,
+              margin: EdgeInsets.symmetric(horizontal: 3.w),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(10.r)),
-                border: Border.all(color: color.withValues(alpha: 0.6)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [_pedestal[place]!, _pedestal[place]!.withValues(alpha: 0.7)],
+                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12.r)),
+                border: Border(top: BorderSide(color: color, width: 3)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('${u.chips}', style: AppText.h2.copyWith(fontSize: crown ? 18.sp : 15.sp)),
-                  Text('TOTAL CHIPS', style: AppText.captionBold.copyWith(color: AppColors.textSecondary)),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(20.r),
+                      boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 1))],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 13.w,
+                          height: 13.w,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.white, width: 2),
+                            boxShadow: [BoxShadow(color: color, spreadRadius: 1)],
+                          ),
+                        ),
+                        SizedBox(width: 5.w),
+                        Text(
+                          _thousands(u.chips),
+                          style: AppText.h4.copyWith(fontSize: first ? 15.sp : 12.sp, color: const Color(0xFF1B1B22), letterSpacing: first ? 1 : 0),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 5.h),
+                  Text(
+                    'TOTAL CHIPS',
+                    style: AppText.captionBold.copyWith(
+                      fontSize: 9.sp,
+                      letterSpacing: 0.5,
+                      color: first ? const Color(0xFF5A4300) : const Color(0xFF3A3A44),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -279,60 +402,73 @@ class _Podium extends StatelessWidget {
 
     RankedUser? at(int i) => i < top.length ? top[i] : null;
     return Container(
-      padding: EdgeInsets.fromLTRB(10.w, 14.h, 10.w, 0),
+      padding: EdgeInsets.fromLTRB(8.w, 14.h, 8.w, 0),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: AppColors.borderStrong),
+        border: Border.all(color: AppColors.blueBorder.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [spot(at(1), _silver, 58), spot(at(0), _gold, 78, crown: true), spot(at(2), _bronze, 58)],
+        children: [spot(at(1), 2), spot(at(0), 1), spot(at(2), 3)],
       ),
     );
   }
 }
 
-// Dealer Ships Ranking
+/// Rank #4 onward.
+class _UserRow extends StatelessWidget {
+  const _UserRow({required this.user, required this.isMe});
 
-class DealerRankingScreen extends StatefulWidget {
-  const DealerRankingScreen({super.key});
-
-  @override
-  State<DealerRankingScreen> createState() => _DealerRankingScreenState();
-}
-
-class _DealerRankingScreenState extends State<DealerRankingScreen> with _LoadOnOpen {
-  @override
-  Future<void> load(RewardsController r) => r.loadDealerRanking();
+  final RankedUser user;
+  final bool isMe;
 
   @override
   Widget build(BuildContext context) {
-    final r = context.watch<RewardsController>();
-    final list = r.dealerRanking;
-    Widget count(int n) => Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.how_to_reg_rounded, size: 14.sp, color: AppColors.red),
-        SizedBox(width: 4.w),
-        Text('$n', style: AppText.h5.copyWith(color: AppColors.red)),
-      ],
-    );
-    final dealerIcon = InitialsAvatar(initials: 'HD', size: 40.w, fontSize: 13);
-    return _Page(
-      title: 'Dealer Ships Ranking',
-      subtitle: 'The least visited stops, rarest first',
-      onRefresh: r.loadDealerRanking,
-      children: [
-        if (list.isEmpty)
-          _empty(r.loading ? 'Loading…' : 'No dealerships listed yet.')
-        else ...[
-          _TopDealer(dealer: list.first),
-          SizedBox(height: 14.h),
-          for (final d in list.skip(1))
-            _RankRow(rank: d.rank, leading: dealerIcon, title: d.name, subtitle: d.address, trailing: count(d.checkIns)),
+    return Container(
+      margin: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: isMe ? AppColors.redTint : AppColors.surface,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: isMe ? AppColors.redBorder : _rowBorder),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 36.w,
+            child: Text('#${user.rank}', style: AppText.h4.copyWith(fontSize: 14.4.sp)),
+          ),
+          _Avatar(name: user.name, url: user.avatarUrl, size: 40),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isMe ? 'You' : user.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.h4.copyWith(fontSize: 14.4.sp)),
+                if (user.place != null) ...[SizedBox(height: 3.h), _place(user.place!)],
+              ],
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+            decoration: BoxDecoration(
+              color: AppColors.red.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: AppColors.red.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.hexagon_outlined, size: 15.sp, color: AppColors.red),
+                SizedBox(width: 6.w),
+                Text(_thousands(user.chips), style: AppText.h4.copyWith(fontSize: 14.4.sp)),
+              ],
+            ),
+          ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -347,41 +483,147 @@ class _TopDealer extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        gradient: const RadialGradient(
+          center: Alignment(0.95, -0.9),
+          radius: 1.1,
+          colors: [Color(0x99A91318), AppColors.surface],
+        ),
         borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: AppColors.borderStrong),
+        border: Border.all(color: AppColors.blueBorder.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _rankTag(1, _gold),
+                        SizedBox(width: 8.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(color: AppColors.redTint, borderRadius: BorderRadius.circular(8.r)),
+                          child: Text(
+                            'ULTRA RARE STOP',
+                            style: AppText.captionBold.copyWith(fontSize: 9.6.sp, color: AppColors.red, letterSpacing: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10.h),
+                    Text(dealer.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppText.h2.copyWith(fontSize: 17.6.sp)),
+                    if (dealer.address.isNotEmpty) ...[SizedBox(height: 3.h), _place(dealer.address, size: 11.6)],
+                  ],
+                ),
+              ),
+              SizedBox(width: 10.w),
+              _dealerAvatar(48),
+            ],
+          ),
+          SizedBox(height: 14.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFFF2CB55), Color(0xFFD9A62A)]),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Column(
+              children: [
+                Text('Total Checked-In', style: AppText.h5.copyWith(fontSize: 13.sp, color: AppColors.black)),
+                SizedBox(height: 4.h),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.how_to_reg_rounded, size: 20.sp, color: AppColors.redDark),
+                    SizedBox(width: 6.w),
+                    Text(
+                      dealer.checkIns.toString().padLeft(2, '0'),
+                      style: AppText.h1.copyWith(color: AppColors.redDark, fontSize: 22.sp),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// #2 and #3, side by side.
+class _RunnerUpDealer extends StatelessWidget {
+  const _RunnerUpDealer({required this.dealer});
+
+  final RankedDealer dealer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: _rowBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              StatusBadge(label: '#1 RANK', background: _gold, textColor: AppColors.black, radius: 8.r, fontSize: 11),
-              SizedBox(width: 8.w),
-              StatusBadge(label: 'ULTRA RARE STOP', background: AppColors.redTint, textColor: AppColors.red, radius: 8.r, fontSize: 11),
+              _rankTag(dealer.rank, _medal(dealer.rank)),
               const Spacer(),
-              InitialsAvatar(initials: 'HD', size: 44.w, fontSize: 14),
+              _checkIns(dealer.checkIns, size: 11),
             ],
           ),
           SizedBox(height: 10.h),
-          Text(dealer.name, style: AppText.h2.copyWith(fontSize: 17.6.sp)),
-          if (dealer.address.isNotEmpty) Text('📍 ${dealer.address}', style: AppText.bodyDim.copyWith(fontSize: 12.sp)),
-          SizedBox(height: 14.h),
-          Center(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 10.h),
-              decoration: BoxDecoration(color: _gold, borderRadius: BorderRadius.circular(10.r)),
-              child: Column(
-                children: [
-                  Text('Total Checked-In', style: AppText.h5.copyWith(color: AppColors.black)),
-                  Text(
-                    dealer.checkIns.toString().padLeft(2, '0'),
-                    style: AppText.h1.copyWith(color: AppColors.redDark, fontSize: 22.sp),
-                  ),
-                ],
-              ),
+          Text(dealer.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.h4.copyWith(fontSize: 14.sp)),
+          if (dealer.address.isNotEmpty) ...[SizedBox(height: 3.h), _place(dealer.address, size: 10.4)],
+        ],
+      ),
+    );
+  }
+}
+
+/// Dealer rank #4 onward.
+class _DealerRow extends StatelessWidget {
+  const _DealerRow({required this.dealer});
+
+  final RankedDealer dealer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: _rowBorder),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 36.w,
+            child: Text('#${dealer.rank}', style: AppText.h4.copyWith(fontSize: 14.4.sp)),
+          ),
+          _dealerAvatar(40),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(dealer.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.h4.copyWith(fontSize: 14.4.sp)),
+                if (dealer.address.isNotEmpty) ...[SizedBox(height: 3.h), _place(dealer.address)],
+              ],
             ),
           ),
+          SizedBox(width: 8.w),
+          _checkIns(dealer.checkIns, size: 11),
         ],
       ),
     );
@@ -494,11 +736,25 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> wit
   @override
   Widget build(BuildContext context) {
     final r = context.watch<RewardsController>();
+    final since = DateTime.now().subtract(const Duration(days: 30));
     return _Page(
       title: 'Transaction History',
-      subtitle: 'Every point earned and spent',
+      subtitle: 'Your transaction history will show here',
       onRefresh: r.loadWallet,
-      children: [_TxnList(items: r.transactions, loading: r.loading)],
+      children: [
+        Row(
+          children: [
+            Icon(Icons.calendar_today_outlined, size: 12.sp, color: AppColors.textSecondary),
+            SizedBox(width: 6.w),
+            Text(
+              'LAST 30 DAYS TRANSACTIONS',
+              style: AppText.captionBold.copyWith(fontSize: 10.sp, letterSpacing: 0.6, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        SizedBox(height: 10.h),
+        _TxnList(items: r.transactions.where((t) => t.createdAt.isAfter(since)).toList(), loading: r.loading),
+      ],
     );
   }
 }
@@ -513,10 +769,11 @@ class _TxnList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return _empty(loading ? 'Loading…' : 'Nothing yet. Check in at a dealership to earn your first points.');
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(15.r),
-        border: Border.all(color: AppColors.borderStrong),
+        border: Border.all(color: _rowBorder),
       ),
       child: Column(
         children: [
@@ -535,52 +792,61 @@ class _TxnRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final earned = t.points > 0;
+    final purchase = t.reason == 'CHIP_PURCHASE';
     final color = earned ? AppColors.green : AppColors.red;
-    final icon = switch (t.reason) {
-      'CHIP_PURCHASE' => Icons.toll_outlined,
-      _ when earned => Icons.arrow_downward_rounded,
-      _ => Icons.arrow_upward_rounded,
-    };
     final d = t.createdAt;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final when = '${months[d.month - 1]} ${d.day}, ${d.year} • ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final titleStyle = AppText.body.copyWith(fontSize: 13.sp);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       child: Row(
         children: [
+          // Green ↓ for money in, red ↑ for money out, grey coin for a chip bought (as in the design).
           Container(
-            width: 34.w,
-            height: 34.w,
+            width: 36.w,
+            height: 36.w,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: color.withValues(alpha: 0.7)),
+              color: purchase ? AppColors.surfaceLight : color.withValues(alpha: 0.08),
+              border: Border.all(color: purchase ? AppColors.borderStrong : color.withValues(alpha: 0.7)),
             ),
-            child: Icon(icon, size: 16.sp, color: color),
+            child: Icon(
+              purchase ? Icons.toll_outlined : (earned ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded),
+              size: 17.sp,
+              color: purchase ? AppColors.white : color,
+            ),
           ),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  t.title,
+                Text.rich(
+                  purchase
+                      ? TextSpan(
+                          text: 'Purchased: ',
+                          children: [TextSpan(text: t.note ?? 'chip', style: titleStyle.copyWith(fontWeight: FontWeight.w700))],
+                        )
+                      : TextSpan(text: t.title),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppText.body.copyWith(fontSize: 13.sp),
+                  style: titleStyle,
                 ),
-                Text(when, style: AppText.bodySmDim),
+                SizedBox(height: 2.h),
+                Text(when, style: AppText.bodySmDim.copyWith(color: AppColors.textTertiary)),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${earned ? '+' : '-'}${usd(t.points.abs() * centsPerPoint)}',
-                style: AppText.h5.copyWith(color: color, fontSize: 13.sp),
-              ),
-              Text('${earned ? '+' : ''}${t.points} pts', style: AppText.bodySmDim),
-            ],
+          SizedBox(width: 8.w),
+          Text(
+            '${earned ? '+' : '-'}${usd(t.points.abs() * centsPerPoint)}',
+            style: AppText.h5.copyWith(
+              color: color,
+              fontSize: 13.6.sp,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              letterSpacing: 0.4,
+            ),
           ),
         ],
       ),

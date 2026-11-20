@@ -100,7 +100,7 @@ class AppRoutes {
   // Points, rankings and the official chip store
   static const wallet = '/wallet';
   static const walletHistory = '/wallet-history';
+  /// Rankings screen; Dealership Ranking is a tab inside it.
   static const leaderboard = '/leaderboard';
-  static const dealerRanking = '/dealer-ranking';
   static const chipStore = '/chip-store';
 }

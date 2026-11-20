@@ -10,6 +10,7 @@ import '../../core/utils/layout.dart';
 import '../../widgets/app_background.dart';
 import '../../widgets/image_source_sheet.dart';
 import '../../widgets/scan_frame.dart';
+import 'chip_camera_screen.dart';
 
 class AddItemScreen extends StatelessWidget {
   const AddItemScreen({super.key});
@@ -18,11 +19,11 @@ class AddItemScreen extends StatelessWidget {
     // Re-entered from the snackbar's gallery action, which outlives this screen.
     if (!context.mounted) return;
     final sell = context.read<SellController>();
-    final path = await ImageSourceSheet.capture(
-      context,
-      source,
-      onGalleryFallback: source == ImageSource.camera ? () => _capture(context, ImageSource.gallery) : null,
-    );
+    // Client requirement: chips are shot through the circular camera so the
+    // chip fills the photo. Upload stays the plain gallery picker.
+    final path = source == ImageSource.camera
+        ? await Navigator.push(context, ChipCameraScreen.route())
+        : await ImageSourceSheet.capture(context, source);
     if (path == null || !context.mounted) return;
     // The form opens straight away and shows "Reading your chip…" until the scan lands.
     sell.scanPhoto(path);

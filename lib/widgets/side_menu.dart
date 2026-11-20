@@ -18,15 +18,13 @@ class SideMenu extends StatelessWidget {
     (Icons.inventory_2_outlined, 'Orders', AppRoutes.ordersPurchase),
     (Icons.layers_outlined, 'Collections', AppRoutes.collections),
     (Icons.favorite_border, 'Wish list', AppRoutes.wishlist),
+    // Same entries and order as the Figma "Side Menu" frame. Settings is on Profile,
+    // Chip Marketplace on Wallet.
+    (Icons.leaderboard_outlined, 'Rankings', AppRoutes.leaderboard),
     (Icons.assignment_ind_outlined, 'Order Request', AppRoutes.orderRequests),
     (Icons.assignment_outlined, 'Activity', AppRoutes.myActivity),
     (Icons.account_balance_wallet_outlined, 'Wallet', AppRoutes.wallet),
-    (Icons.toll_outlined, 'Chip Marketplace', AppRoutes.chipStore),
-    (Icons.leaderboard_outlined, 'Leaderboard', AppRoutes.leaderboard),
-    (Icons.storefront_outlined, 'Dealer Ranking', AppRoutes.dealerRanking),
     (Icons.workspace_premium_outlined, 'Subscription Plan', AppRoutes.choosePlan),
-    (Icons.credit_card_outlined, 'Payment Method', AppRoutes.paymentMethods),
-    (Icons.settings_outlined, 'Settings', AppRoutes.settings),
   ];
 
   /// Logging out drops the session, so it asks first. A dismissed dialog

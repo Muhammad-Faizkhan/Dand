@@ -1,15 +1,19 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- No android.permission.CAMERA on purpose. image_picker hands off to the
-         system camera app via ACTION_IMAGE_CAPTURE, which needs no permission of
-         ours; declaring CAMERA without also requesting it at runtime makes that
-         intent fail with a SecurityException. Only re-add it alongside a runtime
-         request (e.g. permission_handler). -->
+    <!-- CAMERA comes from the camera plugin (circular chip camera), which asks
+         for it at runtime. image_picker sees it declared and asks for it too
+         before opening the system camera, so the normal pickers keep working.
+         The plugin also declares audio and old storage access; photos need
+         neither, so they are removed here. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" tools:replace="android:required"/>
     <application
-        android:label="dandcollection"
+        android:label="DAN D Collection"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <meta-data

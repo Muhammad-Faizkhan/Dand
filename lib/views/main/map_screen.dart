@@ -90,6 +90,15 @@ class MapScreen extends StatelessWidget {
                       alignment: Alignment.topCenter,
                       child: _DealerPin(dealer: d),
                     ),
+                  // "Checked-In" tag just under the pin of dealers this user has visited.
+                  for (final d in dealers.where((d) => d.checkedIn))
+                    Marker(
+                      point: LatLng(d.lat, d.lng),
+                      width: 110.w,
+                      height: 30.h,
+                      alignment: Alignment.bottomCenter,
+                      child: const _CheckedInTag(),
+                    ),
                 ],
               ),
               RichAttributionWidget(
@@ -165,6 +174,36 @@ class MapScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CheckedInTag extends StatelessWidget {
+  const _CheckedInTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: EdgeInsets.only(top: 5.h),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+          decoration: BoxDecoration(
+            color: const Color(0xE6101A3A),
+            borderRadius: BorderRadius.circular(6.r),
+            border: Border.all(color: AppColors.blueLight),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_rounded, size: 13.sp, color: AppColors.blueLight),
+              SizedBox(width: 4.w),
+              Text('Checked-In', style: AppText.bodySm.copyWith(fontSize: 9.6.sp)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
