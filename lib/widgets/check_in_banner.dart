@@ -34,6 +34,8 @@ class _CheckInBannerState extends State<CheckInBanner> with WidgetsBindingObserv
     // Offline builds (tests, design review) have no dealers to poll for.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && context.read<DealersController?>()?.client != null) {
+        // Check straight away too, so opening the app at a dealer doesn't wait for the first tick.
+        _refresh();
         _timer = Timer.periodic(_every, (_) => _refresh());
       }
     });

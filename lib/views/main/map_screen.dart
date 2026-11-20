@@ -221,8 +221,9 @@ class _GoogleDealerMapState extends State<_GoogleDealerMap> {
   @override
   void didUpdateWidget(_GoogleDealerMap old) {
     super.didUpdateWidget(old);
-    // The phone's location usually arrives after the first frame.
-    if (old.center != widget.center) _map?.animateCamera(gm.CameraUpdate.newLatLngZoom(_center, 9.5));
+    // Centre on the phone once, when its location first comes in; the 2-minute check-in refreshes
+    // after that would otherwise pull the map back while the user is looking elsewhere.
+    if (!old.located && widget.located) _map?.animateCamera(gm.CameraUpdate.newLatLngZoom(_center, 9.5));
   }
 
   @override
